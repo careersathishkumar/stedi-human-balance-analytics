@@ -4,6 +4,7 @@ from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
+from awsglue.dynamicframe import DynamicFrame
 
 args = getResolvedOptions(sys.argv, ['JOB_NAME'])
 sc = SparkContext()
@@ -16,8 +17,6 @@ job.init(args['JOB_NAME'], args)
 customer_df = spark.read.json(
     "s3://stedi-project-sathish/customer/trusted/"
 )
-
-
 accelerometer_df = spark.read.json(
     "s3://stedi-project-sathish/accelerometer/trusted/"
 )
@@ -40,9 +39,25 @@ result_df = customer_df.join(
     customer_df["sharewithfriendsasofdate"]
 ).distinct()
 
-
-result_df.write.mode("overwrite").json(
-    "s3://stedi-project-sathish/customer/curated/"
+# Convert to DynamicFrame
+dynamic_frame = DynamicFrame.fromDF(
+    result_df,
+    glueContext,
+    "dynamic_frame"
 )
+
+
+sink = glueContext.getSink(
+    connection_type="s3",
+    path="s3://stedi-project-sathish/customer/curated/",
+    enableUpdateCatalog=True,
+    updateBehavior="UPDATE_IN_DATABASE"
+)
+sink.setFormat("json")
+sink.setCatalogInfo(
+    catalogDatabase="stedi",
+    catalogTableName="customers_curated"
+)
+sink.writeFrame(dynamic_frame)
 
 job.commit()
