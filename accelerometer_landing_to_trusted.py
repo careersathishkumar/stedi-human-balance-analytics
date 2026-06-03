@@ -13,7 +13,7 @@ spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
-# Read from S3
+
 accelerometer_df = spark.read.json(
     "s3://stedi-project-sathish/accelerometer/landing/"
 )
@@ -21,7 +21,7 @@ customer_df = spark.read.json(
     "s3://stedi-project-sathish/customer/trusted/"
 )
 
-# Join on email
+
 result_df = accelerometer_df.join(
     customer_df,
     accelerometer_df["user"] == customer_df["email"],
@@ -34,14 +34,14 @@ result_df = accelerometer_df.join(
     accelerometer_df["z"]
 )
 
-# Convert to DynamicFrame
+
 dynamic_frame = DynamicFrame.fromDF(
     result_df,
     glueContext,
     "dynamic_frame"
 )
 
-# Write and update Glue Catalog
+
 sink = glueContext.getSink(
     connection_type="s3",
     path="s3://stedi-project-sathish/accelerometer/trusted/",
