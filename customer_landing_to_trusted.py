@@ -19,8 +19,29 @@ spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
-
+# Default ruleset used by all target nodes with data quality enabled
 DEFAULT_DATA_QUALITY_RULESET = """
     Rules = [
         ColumnCount > 0
     ]
+"""
+
+# Script generated for node AWS Glue Data Catalog
+AWSGlueDataCatalog_node1780402883157 = glueContext.create_dynamic_frame.from_catalog(database="stedi", table_name="customer_landing", transformation_ctx="AWSGlueDataCatalog_node1780402883157")
+
+# Script generated for node SQL Transform
+SqlQuery0 = '''
+SELECT * FROM myDataSource
+WHERE sharewithresearchasofdate IS NOT NULL
+AND sharewithresearchasofdate <> 0
+
+'''
+SQLTransform_node1780402919604 = sparkSqlQuery(glueContext, query = SqlQuery0, mapping = {"myDataSource":AWSGlueDataCatalog_node1780402883157}, transformation_ctx = "SQLTransform_node1780402919604")
+
+# Script generated for node Amazon S3
+EvaluateDataQuality().process_rows(frame=SQLTransform_node1780402919604, ruleset=DEFAULT_DATA_QUALITY_RULESET, publishing_options={"dataQualityEvaluationContext": "EvaluateDataQuality_node1780402016105", "enableDataQualityResultsPublishing": True}, additional_options={"dataQualityResultsPublishing.strategy": "BEST_EFFORT", "observations.scope": "ALL"})
+AmazonS3_node1780402989220 = glueContext.getSink(path="s3://stedi-project-sathish/customer/trusted/", connection_type="s3", updateBehavior="UPDATE_IN_DATABASE", partitionKeys=[], compression="snappy", enableUpdateCatalog=True, transformation_ctx="AmazonS3_node1780402989220")
+AmazonS3_node1780402989220.setCatalogInfo(catalogDatabase="stedi",catalogTableName="customer_trusted")
+AmazonS3_node1780402989220.setFormat("json")
+AmazonS3_node1780402989220.writeFrame(SQLTransform_node1780402919604)
+job.commit()
